@@ -1,5 +1,9 @@
-const SUPABASE_URL = 'https://cddaomfvpxjbqtpjwsee.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkZGFvbWZ2cHhqYnF0cGp3c2VlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MjA2ODMsImV4cCI6MjA5Nzk5NjY4M30.vV49G1jj4xL_QXZcxfLH7bm232OZoAI-DHGYl1aKiTg';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error('Faltan variables de entorno VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY en el archivo .env');
+}
 
 export const TABLES = ['fact_delitos', 'dim_fecha', 'dim_municipio', 'dim_sexo', 'dim_dept'];
 
@@ -8,19 +12,12 @@ export async function fetchTableData(table, { page = 1, pageSize = 20, search = 
   const to = from + pageSize - 1;
 
   let url = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
-
   if (sortCol) url += `&order=${sortCol}.${sortAsc ? 'asc' : 'desc'}`;
-
-  if (search && searchCol) {
-    url += `&${searchCol}=ilike.*${encodeURIComponent(search)}*`;
-  }
-
+  if (search && searchCol) url += `&${searchCol}=ilike.*${encodeURIComponent(search)}*`;
   Object.entries(filters).forEach(([col, val]) => {
-    if (val !== '' && val !== null && val !== undefined) {
+    if (val !== '' && val !== null && val !== undefined)
       url += `&${col}=ilike.*${encodeURIComponent(val)}*`;
-    }
   });
-
   url += `&offset=${from}&limit=${pageSize}`;
 
   const res = await fetch(url, {
@@ -33,37 +30,21 @@ export async function fetchTableData(table, { page = 1, pageSize = 20, search = 
     },
   });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Error ${res.status}: ${txt}`);
-  }
-
-  const contentRange = res.headers.get('content-range') || '';
-  const total = contentRange ? parseInt(contentRange.split('/')[1]) || 0 : 0;
-  const data = await res.json();
-  return { data, total };
+  if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+  const total = parseInt((res.headers.get('content-range') || '').split('/')[1]) || 0;
+  return { data: await res.json(), total };
 }
 
 export async function fetchAllForChart(table, col, limit = 500) {
   const url = `${SUPABASE_URL}/rest/v1/${table}?select=${col}&limit=${limit}`;
-  const res = await fetch(url, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-    },
-  });
+  const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function fetchDistinct(table, col) {
   const url = `${SUPABASE_URL}/rest/v1/${table}?select=${col}&limit=200`;
-  const res = await fetch(url, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-    },
-  });
+  const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
   if (!res.ok) return [];
   const rows = await res.json();
   const seen = new Set();
